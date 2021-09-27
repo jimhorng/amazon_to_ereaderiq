@@ -1,31 +1,28 @@
 from selenium import webdriver
 from selenium.webdriver.support.ui import Select
 from selenium.webdriver.common.action_chains import ActionChains
+from webdriver_manager.chrome import ChromeDriverManager
 import time, json
 import argparse
 
 def main():
     parser = argparse.ArgumentParser(description='')
-    parser.add_argument('--path_webdriver_chrome', type=str, required=True)
     parser.add_argument('--username_amazon', type=str, required=True)
     parser.add_argument('--password_amazon', type=str, required=True)
     parser.add_argument('--email_ereaderiq', type=str, required=True)
     args = parser.parse_args()
-    path_webdriver_chrome = args.path_webdriver_chrome
+
     username_amazon = args.username_amazon
     password_amazon = args.password_amazon
     email_ereaderiq = args.email_ereaderiq
 
-    driver = webdriver.Chrome(path_webdriver_chrome)
-    driver.implicitly_wait(5)
+    driver = webdriver.Chrome(ChromeDriverManager().install())
+    driver.implicitly_wait(60)
 
     books = get_book_from_amazon(driver, username_amazon, password_amazon)
     print("books:", len(books))
     with open('./books.json', 'w') as outfile:
         json.dump(books, outfile, indent=2)
-
-    # with open('./books.json', 'r') as f:
-    #     books = json.load(f)
 
     add_book_to_ereaderiq(driver, books, email_ereaderiq)
 
@@ -47,7 +44,7 @@ def get_book_from_amazon(driver, username_amazon, password_amazon):
     time.sleep(3)
     button_signin = driver.find_element_by_xpath('//*[@id="signInSubmit"]')
     button_signin.click()
-    time.sleep(20)
+    time.sleep(5)
 
     menu_account = driver.find_element_by_xpath('//*[@id="nav-link-accountList"]/span[1]')
     action = ActionChains(driver)
@@ -73,7 +70,8 @@ def add_book_to_ereaderiq(driver, books, email_ereaderiq):
     driver.get('https://www.ereaderiq.com/')
     button_signin = driver.find_element_by_xpath('//*[@id="header_upper_nav"]/li[1]/a')
     button_signin.click()
-    email_field = driver.find_element_by_xpath('//*[@id="header"]/div[5]/div[2]/div/div[2]/div[1]/div/div[1]/form[1]/ul/li[1]/input')
+    time.sleep(3)
+    email_field = driver.find_element_by_xpath('//*[@id="header"]//form//input[@name="email"]')
     email_field.send_keys(email_ereaderiq)
     button_login = driver.find_element_by_xpath('//*[@id="header"]/div[5]/div[2]/div/div[2]/div[1]/div/div[1]/form[1]/ul/li[3]/input')
     button_login.click()
@@ -81,8 +79,12 @@ def add_book_to_ereaderiq(driver, books, email_ereaderiq):
     driver.get('https://www.ereaderiq.com/track/drops/asin/')
     time.sleep(3)
     driver.execute_script("window.scrollBy(0,300)")
-    ad_close = driver.find_element_by_xpath('//span[@class="mmt-sticky-close"]')
-    ad_close.click()
+    try:
+        ad_close = driver.find_element_by_xpath('//span[@class="mmt-sticky-close"]')
+        ad_close.click()
+    except Exception as ex:
+        print("ad element err:", ex)
+
     time.sleep(3)
 
     for i, book in enumerate(books):
@@ -99,8 +101,11 @@ def add_book_to_ereaderiq(driver, books, email_ereaderiq):
         button_track_it = driver.find_element_by_xpath('//*[@id="content"]//input[@value="Track It"]')
         button_track_it.click()
         time.sleep(3)
-        message = driver.find_element_by_xpath('//*[@id="content"]//li[@class="response shown success"]')
-        print("\tmessage:", message.text)
+        try:
+            message = driver.find_element_by_xpath('//*[@id="content"]//li[@class="response shown success"]')
+            print("\tmessage:", message.text)
+        except Exception as ex:
+            print("message element err:", ex)
 
 
 if __name__ == "__main__":
