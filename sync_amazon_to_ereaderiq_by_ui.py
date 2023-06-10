@@ -4,6 +4,8 @@ from selenium.webdriver.common.action_chains import ActionChains
 from webdriver_manager.chrome import ChromeDriverManager
 import time, json
 import argparse
+import logging
+logging.basicConfig(format='[%(asctime)s] p%(process)s {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s', level=logging.INFO)
 
 def main():
     parser = argparse.ArgumentParser(description='')
@@ -19,11 +21,13 @@ def main():
     driver = webdriver.Chrome(ChromeDriverManager().install())
     driver.implicitly_wait(60)
 
+    logging.info("get books from amazon, start...")
     books = get_book_from_amazon(driver, username_amazon, password_amazon)
-    print("books:", len(books))
+    logging.info("books:%s", len(books))
     with open('./books.json', 'w') as outfile:
         json.dump(books, outfile, indent=2)
 
+    logging.info("add books from to ereaderiq, start...")
     add_book_to_ereaderiq(driver, books, email_ereaderiq)
 
     driver.quit()
@@ -45,6 +49,7 @@ def get_book_from_amazon(driver, username_amazon, password_amazon):
     button_signin = driver.find_element_by_xpath('//*[@id="signInSubmit"]')
     button_signin.click()
     time.sleep(5)
+    logging.info(f"logging-in to amazon")
 
     menu_account = driver.find_element_by_xpath('//*[@id="nav-link-accountList"]/span[1]')
     action = ActionChains(driver)
@@ -52,8 +57,13 @@ def get_book_from_amazon(driver, username_amazon, password_amazon):
     item_wishlist = driver.find_element_by_xpath('//*[@id="nav-flyout-wl-items"]/div/a/span')
     item_wishlist.click()
     time.sleep(5)
+    logging.info(f"keep scrolling for books to appear...")
+    for _ in range(10):
+        driver.execute_script("window.scrollBy(0,300)")
+        time.sleep(1)
     driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
     time.sleep(5)
+    logging.info(f"get books from wishlist")
     items_book = driver.find_elements_by_xpath("//*[@id[starts-with(., 'itemName_')]]")
     books = []
     for item_book in items_book:
@@ -67,6 +77,7 @@ def get_book_from_amazon(driver, username_amazon, password_amazon):
 
 def add_book_to_ereaderiq(driver, books, email_ereaderiq):
     # go ereaderiq
+    logging.info("logging-in to ereaderiq")
     driver.get('https://www.ereaderiq.com/')
     button_signin = driver.find_element_by_xpath('//*[@id="header_upper_nav"]/li[1]/a')
     button_signin.click()
@@ -76,20 +87,25 @@ def add_book_to_ereaderiq(driver, books, email_ereaderiq):
     button_login = driver.find_element_by_xpath('//*[@id="header"]/div[5]/div[2]/div/div[2]/div[1]/div/div[1]/form[1]/ul/li[3]/input')
     button_login.click()
     time.sleep(3)
+    logging.info("opening the book tracking page...")
     driver.get('https://www.ereaderiq.com/track/drops/asin/')
     time.sleep(3)
     driver.execute_script("window.scrollBy(0,300)")
+    logging.info("closing ads if appears...")
     try:
         ad_close = driver.find_element_by_xpath('//span[@class="mmt-sticky-close"]')
         ad_close.click()
     except Exception as ex:
-        print("ad element err:", ex)
+        logging.error("ad element err", exc_info=True)
 
     time.sleep(3)
 
+    logging.info("adding books to watchlist")
     for i, book in enumerate(books):
-        print("***** %s/%s:%s" % (i+1, len(books), book['text']))
+        logging.info("***** %s/%s:%s *****", i+1, len(books), book['text'])
         book_uri = driver.find_element_by_xpath('//*[@id="content"]//input[@name="asin"]')
+        driver.execute_script("arguments[0].scrollIntoView();", book_uri)
+        driver.execute_script("window.scrollBy(0,-200)")
         book_uri.send_keys(book['uri'])
         drop_type = Select(driver.find_element_by_xpath('//*[@id="content"]//select[@name="sign"]'))
         drop_type.select_by_value('percent')
@@ -103,9 +119,9 @@ def add_book_to_ereaderiq(driver, books, email_ereaderiq):
         time.sleep(3)
         try:
             message = driver.find_element_by_xpath('//*[@id="content"]//li[@class="response shown success"]')
-            print("\tmessage:", message.text)
+            logging.info("\tmessage:%s", message.text)
         except Exception as ex:
-            print("message element err:", ex)
+            logging.error("message element err", exc_info=True)
 
 
 if __name__ == "__main__":
