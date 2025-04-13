@@ -15,6 +15,8 @@ logging.basicConfig(
     level=logging.INFO,
 )
 
+WAIT_SEC = 30
+
 
 def main():
     parser = argparse.ArgumentParser(description="")
@@ -27,10 +29,8 @@ def main():
     password_amazon = args.password_amazon
     email_ereaderiq = args.email_ereaderiq
 
-    driver = webdriver.Chrome(
-        service=ChromeService(ChromeDriverManager().install())
-    )
-    driver.implicitly_wait(60)
+    driver = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()))
+    driver.implicitly_wait(WAIT_SEC)
 
     logging.info("get books from amazon, start...")
     books = get_book_from_amazon(driver, username_amazon, password_amazon)
@@ -46,41 +46,55 @@ def main():
 
 def get_book_from_amazon(driver, username_amazon, password_amazon):
     driver.get("https://www.amazon.com/")
+
     menu_account = driver.find_element(
-        By.XPATH, '//*[@id="nav-link-accountList"]/span[1]'
+        By.XPATH, '//*[@id="nav-link-accountList-nav-line-1"]'
     )
     menu_account.click()
 
     field_email = driver.find_element(By.XPATH, '//*[@id="ap_email"]')
     field_email.send_keys(username_amazon)
+
     time.sleep(3)
+
     button_continue = driver.find_element(By.XPATH, '//*[@id="continue"]')
     button_continue.click()
+
     time.sleep(3)
+
     field_password = driver.find_element(By.XPATH, '//*[@id="ap_password"]')
     field_password.send_keys(password_amazon)
+
     time.sleep(3)
+
     button_signin = driver.find_element(By.XPATH, '//*[@id="signInSubmit"]')
     button_signin.click()
+
     time.sleep(5)
+
     logging.info(f"logging-in to amazon")
 
-    menu_account = driver.find_element(
-        By.XPATH, '//*[@id="nav-link-accountList"]/span[1]'
+    menu_account_dropdown = driver.find_element(
+        By.XPATH, '//*[@id="nav-link-accountList"]'
     )
     action = ActionChains(driver)
-    action.move_to_element(menu_account).perform()
+    action.move_to_element(menu_account_dropdown).perform()
+
     item_wishlist = driver.find_element(
         By.XPATH, '//*[@id="nav-flyout-wl-items"]/div/a/span'
     )
     item_wishlist.click()
+
     time.sleep(5)
+
     logging.info(f"keep scrolling for books to appear...")
     for _ in range(10):
         driver.execute_script("window.scrollBy(0,300)")
         time.sleep(1)
     driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+    
     time.sleep(5)
+    
     logging.info(f"get books from wishlist")
     book_items = driver.find_elements(By.XPATH, "//*[@id[starts-with(., 'itemName_')]]")
     books = []
@@ -94,9 +108,12 @@ def add_book_to_ereaderiq(driver, books, email_ereaderiq):
     # go ereaderiq
     logging.info("logging-in to ereaderiq")
     driver.get("https://www.ereaderiq.com/")
+
     button_signin = driver.find_element(By.XPATH, '//*[@id="header_upper_nav"]/li[1]/a')
     button_signin.click()
+    
     time.sleep(3)
+    
     email_field = driver.find_element(
         By.XPATH, '//*[@id="header"]//form//input[@name="email"]'
     )
@@ -106,10 +123,14 @@ def add_book_to_ereaderiq(driver, books, email_ereaderiq):
         '//*[@id="header"]/div[5]/div[2]/div/div[2]/div[1]/div/div[1]/form[1]/ul/li[3]/input',
     )
     button_login.click()
+    
     time.sleep(3)
+    
     logging.info("opening the book tracking page...")
     driver.get("https://www.ereaderiq.com/track/drops/asin/")
+    
     time.sleep(3)
+    
     driver.execute_script("window.scrollBy(0,300)")
     logging.info("closing ads if appears...")
     try:
@@ -146,7 +167,9 @@ def add_book_to_ereaderiq(driver, books, email_ereaderiq):
             By.XPATH, '//*[@id="content"]//input[@value="Track It"]'
         )
         button_track_it.click()
+        
         time.sleep(3)
+        
         try:
             message = driver.find_element(
                 By.XPATH, '//*[@id="content"]//li[@class="response shown success"]'
